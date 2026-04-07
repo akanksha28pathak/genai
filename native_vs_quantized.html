@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>16GB GPU Optimizer: Native vs Quantized AI Models</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #fafaf9;
+            color: #292524;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .interactive-card {
+            transition: all 0.3s ease;
+        }
+        .interactive-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-stone-300">
+
+    <!-- Chosen Palette: Warm Neutrals (Stone/Slate) with Amber (Native) and Emerald (Quantized) Accents -->
+    <!-- Application Structure Plan: The SPA is structured as a technical dashboard tailored for a user with a 16GB GPU (like the RTX 5080). It flows sequentially from understanding physical hardware constraints (VRAM Allocator), to comparing the performance trade-offs (Radar Chart), and finally to practical application (Use-Case Selector). This linear, interactive flow helps users synthesize the dense technical concepts of precision vs. parameters into actionable decisions for their specific hardware setup. -->
+    <!-- Visualization & Content Choices: 
+         1. VRAM Allocator (HTML/CSS progress bars): Visualizes the core concept of how many parameters fit into 12-14GB of a 16GB GPU based on precision (bits). Interaction: Toggle switch. Justification: Translates abstract concepts into physical hardware realities. 
+         2. Performance Radar (Chart.js Canvas): Compares Native vs Quantized across 4 metrics (Logic, Speed, Fine-Tuning, Factuality). Interaction: Hover tooltips. Justification: Best for multi-variable profiling without SVG.
+         3. Interactive Decision Matrix (HTML/JS Cards): Filters the text Q&A into actionable scenarios. Interaction: Click to reveal optimal model type. Justification: Forces active engagement with the text findings. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <div class="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-stone-800 mb-4">
+                The 16GB AI Model Architect
+            </h1>
+            <p class="text-lg text-stone-600 max-w-2xl mx-auto">
+                Optimizing large language models for a 16GB GPU environment (e.g., RTX 5080). Explore the critical trade-off between parameter count ("brain size") and precision ("sharpness").
+            </p>
+        </header>
+
+        <section class="mb-16 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+            <div class="p-6 md:p-8 border-b border-stone-100 bg-stone-50">
+                <h2 class="text-2xl font-bold text-stone-800 mb-2">1. The Hardware Reality: VRAM Allocation</h2>
+                <p class="text-stone-600">
+                    Your target is to fit a model comfortably within 12GB - 14GB of your 16GB GPU. Use the toggle below to see how data compression (Quantization) allows you to fit a significantly larger "brain" into the exact same VRAM footprint.
+                </p>
+            </div>
+            
+            <div class="p-6 md:p-8">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                    
+                    <div class="w-full md:w-1/3 space-y-6">
+                        <div class="flex items-center space-x-4 p-4 rounded-xl border-2 transition-colors duration-300" id="native-toggle-btn" style="border-color: #d97706; background-color: #fef3c7; cursor: pointer;">
+                            <div class="w-6 h-6 rounded-full bg-amber-600 flex items-center justify-center text-white text-xs font-bold">16</div>
+                            <div>
+                                <h3 class="font-bold text-amber-900">Native (FP16)</h3>
+                                <p class="text-sm text-amber-700">16 bits per parameter. Bulky but perfectly sharp.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-4 p-4 rounded-xl border-2 transition-colors duration-300" id="quant-toggle-btn" style="border-color: transparent; background-color: #f5f5f4; cursor: pointer;">
+                            <div class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">4</div>
+                            <div>
+                                <h3 class="font-bold text-emerald-900">Quantized (INT4)</h3>
+                                <p class="text-sm text-emerald-700">4 bits per parameter. Compressed, fitting ~4x more.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full md:w-2/3 bg-stone-100 rounded-xl p-6 border border-stone-200">
+                        <div class="flex justify-between text-sm font-semibold text-stone-500 mb-2">
+                            <span>0 GB</span>
+                            <span>Target: 14 GB</span>
+                            <span>Max: 16 GB</span>
+                        </div>
+                        <div class="w-full h-12 bg-stone-300 rounded-full overflow-hidden flex relative">
+                            <div id="vram-fill" class="h-full bg-amber-500 transition-all duration-500 ease-in-out flex items-center justify-end pr-4" style="width: 87.5%;">
+                                <span class="text-white font-bold text-sm tracking-wider" id="vram-text">7 BILLION PARAMETERS</span>
+                            </div>
+                            <div class="absolute right-[12.5%] top-0 bottom-0 w-1 bg-red-400 border-x border-white opacity-80" title="14GB Safety Limit"></div>
+                        </div>
+                        <div class="mt-6 text-center">
+                            <p class="text-lg font-medium text-stone-800" id="vram-conclusion">
+                                In Native mode, your 14GB limit restricts you to a smaller <strong>~7B to 8B parameter model</strong>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-16 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-stone-800 mb-2">2. The Trade-off Profile</h2>
+                <p class="text-stone-600 mb-6">
+                    A larger, slightly compressed brain (32B Quantized) generally outperforms a perfectly sharp, smaller brain (8B Native) in reasoning. However, Native models retain distinct advantages in speed and factual precision.
+                </p>
+                <div class="chart-container">
+                    <canvas id="tradeoffRadarChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 flex flex-col justify-center">
+                <h2 class="text-2xl font-bold text-stone-800 mb-2">Key Takeaways Matrix</h2>
+                <p class="text-stone-600 mb-6">
+                    Understanding the architectural differences helps in selecting the right deployment strategy for your 16GB setup.
+                </p>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-4 bg-stone-50 rounded-lg border border-stone-200">
+                        <span class="font-bold text-stone-700">Logic & Reasoning</span>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded">Native: Lower</span>
+                            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-sm rounded font-bold">Quantized: Higher</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center p-4 bg-stone-50 rounded-lg border border-stone-200">
+                        <span class="font-bold text-stone-700">Speed (Latency)</span>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded font-bold">Native: Faster</span>
+                            <span class="px-3 py-1 bg-stone-200 text-stone-600 text-sm rounded">Quantized: Slower</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center p-4 bg-stone-50 rounded-lg border border-stone-200">
+                        <span class="font-bold text-stone-700">Factuality</span>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded font-bold">Native: Precise</span>
+                            <span class="px-3 py-1 bg-stone-200 text-stone-600 text-sm rounded">Quantized: Blurry</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center p-4 bg-stone-50 rounded-lg border border-stone-200">
+                        <span class="font-bold text-stone-700">Fine-Tuning</span>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded font-bold">Native: Direct Support</span>
+                            <span class="px-3 py-1 bg-stone-200 text-stone-600 text-sm rounded">Quantized: Needs QLoRA</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-16 bg-stone-800 rounded-2xl shadow-lg overflow-hidden text-stone-100">
+            <div class="p-6 md:p-8 border-b border-stone-700">
+                <h2 class="text-2xl font-bold text-white mb-2">3. Deployment Decision Engine</h2>
+                <p class="text-stone-300">
+                    Select your primary objective below to reveal whether you should load a Native or Quantized model into your 16GB GPU environment based on the source findings.
+                </p>
+            </div>
+            <div class="p-6 md:p-8">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" id="decision-buttons">
+                    <button data-target="reasoning" class="decision-btn w-full py-3 px-4 bg-stone-700 hover:bg-emerald-600 rounded-lg font-semibold transition-colors focus:outline-none ring-2 ring-transparent focus:ring-emerald-400">Complex Logic</button>
+                    <button data-target="speed" class="decision-btn w-full py-3 px-4 bg-stone-700 hover:bg-amber-500 rounded-lg font-semibold transition-colors focus:outline-none ring-2 ring-transparent focus:ring-amber-400">Low Latency</button>
+                    <button data-target="training" class="decision-btn w-full py-3 px-4 bg-stone-700 hover:bg-amber-500 rounded-lg font-semibold transition-colors focus:outline-none ring-2 ring-transparent focus:ring-amber-400">Deep Fine-Tuning</button>
+                    <button data-target="math" class="decision-btn w-full py-3 px-4 bg-stone-700 hover:bg-amber-500 rounded-lg font-semibold transition-colors focus:outline-none ring-2 ring-transparent focus:ring-amber-400">Math & Data</button>
+                </div>
+
+                <div id="decision-output" class="bg-stone-900 rounded-xl p-8 border border-stone-700 min-h-[160px] flex items-center justify-center text-center transition-all duration-300">
+                    <p class="text-xl text-stone-400 italic">Select an objective above to see the recommendation.</p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        const state = {
+            currentMode: 'native'
+        };
+
+        const nativeBtn = document.getElementById('native-toggle-btn');
+        const quantBtn = document.getElementById('quant-toggle-btn');
+        const vramFill = document.getElementById('vram-fill');
+        const vramText = document.getElementById('vram-text');
+        const vramConclusion = document.getElementById('vram-conclusion');
+
+        function updateVramVisuals(mode) {
+            if (mode === 'native') {
+                nativeBtn.style.borderColor = '#d97706';
+                nativeBtn.style.backgroundColor = '#fef3c7';
+                quantBtn.style.borderColor = 'transparent';
+                quantBtn.style.backgroundColor = '#f5f5f4';
+                
+                vramFill.style.backgroundColor = '#f59e0b';
+                vramFill.style.width = '87.5%'; 
+                vramText.innerText = '8 BILLION PARAMETERS';
+                vramConclusion.innerHTML = 'In Native mode, your 14GB limit restricts you to a smaller <strong>~8B parameter model</strong> because each parameter requires 16 bits.';
+            } else {
+                quantBtn.style.borderColor = '#059669';
+                quantBtn.style.backgroundColor = '#d1fae5';
+                nativeBtn.style.borderColor = 'transparent';
+                nativeBtn.style.backgroundColor = '#f5f5f4';
+
+                vramFill.style.backgroundColor = '#10b981';
+                vramFill.style.width = '87.5%';
+                vramText.innerText = '32 BILLION PARAMETERS';
+                vramConclusion.innerHTML = 'In Quantized mode, you compress the weights to 4 bits, allowing a massive <strong>~32B parameter model</strong> to fit comfortably in the same 14GB allocation.';
+            }
+        }
+
+        nativeBtn.addEventListener('click', () => updateVramVisuals('native'));
+        quantBtn.addEventListener('click', () => updateVramVisuals('quant'));
+
+        const ctx = document.getElementById('tradeoffRadarChart').getContext('2d');
+        const tradeoffChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Logic & Reasoning', 'Speed (Latency)', 'Factuality', 'Fine-Tuning Ease'],
+                datasets: [
+                    {
+                        label: 'Native (8B)',
+                        data: [4, 9, 9, 9],
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(245, 158, 11, 1)'
+                    },
+                    {
+                        label: 'Quantized (32B)',
+                        data: [9, 5, 5, 4],
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(16, 185, 129, 1)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(0,0,0,0.1)' },
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        pointLabels: {
+                            font: { size: 14, family: "'Segoe UI', sans-serif", weight: '600' },
+                            color: '#444'
+                        },
+                        ticks: { display: false, min: 0, max: 10 }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 14, family: "'Segoe UI', sans-serif" },
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(28, 25, 23, 0.9)',
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 14 },
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                }
+            }
+        });
+
+        const scenarios = {
+            'reasoning': {
+                type: 'Quantized (e.g., 32B INT4)',
+                color: 'text-emerald-400',
+                desc: 'Usually the Quantized model is smarter. A larger "brain" (more parameters) that is slightly compressed almost always outperforms a perfectly sharp smaller brain. It contains more complex world knowledge.'
+            },
+            'speed': {
+                type: 'Native (e.g., 8B FP16)',
+                color: 'text-amber-400',
+                desc: 'Native models are the better choice for speed. Because they are physically smaller in total parameters, they have fewer calculations to run per word, resulting in lower latency.'
+            },
+            'training': {
+                type: 'Native (e.g., 8B FP16) *',
+                color: 'text-amber-400',
+                desc: 'High precision is required for the model to actually "learn" new information deeply. Frozen quantized weights don\'t allow tiny adjustments natively. (*Note: You can use QLoRA as a workaround for Quantized models).*'
+            },
+            'math': {
+                type: 'Native (e.g., 8B FP16)',
+                color: 'text-amber-400',
+                desc: 'Native is better for factuality and math. It avoids the "rounding errors" introduced by quantization compression, making it highly reliable for specific data and calculations.'
+            }
+        };
+
+        const decisionBtns = document.querySelectorAll('.decision-btn');
+        const decisionOutput = document.getElementById('decision-output');
+
+        decisionBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                decisionBtns.forEach(b => {
+                    b.classList.remove('ring-4');
+                    b.style.opacity = '0.6';
+                });
+                
+                e.target.classList.add('ring-4');
+                e.target.style.opacity = '1';
+
+                const target = e.target.getAttribute('data-target');
+                const data = scenarios[target];
+
+                decisionOutput.style.opacity = 0;
+                
+                setTimeout(() => {
+                    decisionOutput.innerHTML = `
+                        <div class="text-left w-full">
+                            <h4 class="text-sm font-bold text-stone-500 uppercase tracking-widest mb-1">Recommendation</h4>
+                            <h3 class="text-3xl font-extrabold ${data.color} mb-4">${data.type}</h3>
+                            <p class="text-lg text-stone-300 leading-relaxed">${data.desc}</p>
+                        </div>
+                    `;
+                    decisionOutput.style.opacity = 1;
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>
